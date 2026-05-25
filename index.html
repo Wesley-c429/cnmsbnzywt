@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>CG仓费用计算器 V7 - 仓储费修正版</title>
+  <title>CG仓费用计算器 V8 - 渠道计费版</title>
   <style>
     :root{
       --bg:#f4f6f8;--card:#fff;--text:#172033;--muted:#64748b;--line:#d8dee8;
@@ -57,10 +57,10 @@
 <div class="wrap">
   <div class="header">
     <div>
-      <h1>CG仓发货 + 仓储费用计算器 V7</h1>
-      <div class="sub">只输入工厂提供的 cm 和 kg。系统自动换算 inch、lbs、cu ft，并用换算后的结果匹配 CG 费用。仓储费按有效计费天数计算发货成本，可按需要手动开启。</div>
+      <h1>CG仓发货 + 仓储费用计算器 V8</h1>
+      <div class="sub">只输入工厂提供的 cm 和 kg。系统自动换算 inch、lbs、cu ft，并用换算后的结果匹配 CG 费用。按订单渠道选择计费项发货成本，可按需要手动开启。</div>
     </div>
-    <div class="tag">仓储费按有效计费天数计算</div>
+    <div class="tag">按订单渠道选择计费项</div>
   </div>
 
   <div class="grid">
@@ -78,6 +78,13 @@
           <option value="general">普通家具 / General</option>
           <option value="rug">Rugs 地毯</option>
           <option value="bin">Bin 小件</option>
+        </select>
+      </div>
+      <div class="row two">
+        <label>订单渠道 / 计费口径</label>
+        <select id="orderChannel" class="manual">
+          <option value="wayfair">Wayfair订单｜只计 Fulfillment Fee</option>
+          <option value="multi">多渠道订单｜只计 Pick & Ship</option>
         </select>
       </div>
       <div class="note">输入的是“单箱”包装尺寸和重量，单位固定为 cm 和 kg。系统后台自动换算为 inch 和 lbs。多箱产品建议按每个箱子分别算，或使用“每件箱数”做近似乘算。</div>
@@ -112,10 +119,11 @@
           <option value="yes">是｜计入本次总成本</option>
         </select>
       </div>
-      <div class="row"><label>单箱发货费</label><input id="cartonShipFee" class="summary" readonly><span class="unit">$/箱</span></div>
+      <div class="row"><label>当前计入主费用</label><input id="channelBaseFee" class="summary" readonly><span class="unit">$/箱</span></div>
+      <div class="row"><label>单箱计入费用</label><input id="cartonShipFee" class="summary" readonly><span class="unit">$/箱</span></div>
       <div class="row"><label>总箱数</label><input id="totalCartons" class="result" readonly><span class="unit">箱</span></div>
       <div class="row"><label>发货费小计</label><input id="shipSubtotal" class="summary" readonly><span class="unit">$</span></div>
-      <div class="note">发货费小计 = 总箱数 × 单箱发货费；默认单箱发货费 = Pick & Ship + Fulfillment。Unload Fee 作为可选项，默认不计入。</div>
+      <div class="note">发货费小计 = 总箱数 × 单箱发货费；单箱计入费用按订单渠道选择：多渠道 = Pick & Ship；Wayfair = Fulfillment Fee。Unload Fee 默认不计入。</div>
     </section>
 
     <section class="card">
@@ -140,7 +148,7 @@
       <h2><span class="badge">5</span>结果汇总</h2>
       <div class="kpis">
         <div class="kpi"><div class="name">计费类别</div><div class="value" id="kpiCategory">-</div></div>
-        <div class="kpi"><div class="name">单箱发货费</div><div class="value" id="kpiCarton">$0.00</div></div>
+        <div class="kpi"><div class="name">单箱计入费用</div><div class="value" id="kpiCarton">$0.00</div></div>
         <div class="kpi"><div class="name">发货小计</div><div class="value" id="kpiShipSubtotal">$0.00</div></div>
         <div class="kpi"><div class="name">仓储费率</div><div class="value" id="kpiRate">$0.00</div></div>
         <div class="kpi"><div class="name">仓储费</div><div class="value" id="kpiStorage">$0.00</div></div>
@@ -222,7 +230,7 @@ let current = {};
 function init(){
   $("storageClass").innerHTML = storageClasses.map(x=>`<option value="${x.key}">${x.key}｜${x.desc}</option>`).join("");
   $("storageClass").value = "Standard - Small";
-  ["L","M","S","kg","qty","cartonsPerUnit","productGroup","storageQty","dwellDays","multiChannel","storageClass","includeUnload"].forEach(id => {
+  ["L","M","S","kg","qty","cartonsPerUnit","productGroup","storageQty","dwellDays","multiChannel","storageClass","includeUnload","orderChannel"].forEach(id => {
     $(id).addEventListener("input", calculate);
     $(id).addEventListener("change", calculate);
   });
@@ -357,7 +365,9 @@ function calculate(){
   let extraLbs = Math.max(0, feeWeight - 1);
   let pickShip = row.base + row.perLb * extraLbs;
   let includeUnload = document.getElementById('includeUnload')?.value === 'yes';
-  let cartonShipFee = pickShip + row.fulfill + (includeUnload ? row.unload : 0);
+  let orderChannel = document.getElementById('orderChannel')?.value || 'wayfair';
+  let channelBaseFee = orderChannel === 'multi' ? pickShip : row.fulfill;
+  let cartonShipFee = channelBaseFee + (includeUnload ? row.unload : 0);
   let shipSubtotal = cartonShipFee * totalCartons;
 
   $("baseRate").value=fmt(row.base,2);
@@ -365,6 +375,7 @@ function calculate(){
   $("pickShip").value=fmt(pickShip,2);
   $("unloadFee").value=fmt(row.unload,2);
   $("fulfillFee").value=fmt(row.fulfill,2);
+  $("channelBaseFee").value=fmt(channelBaseFee,2);
   $("cartonShipFee").value=fmt(cartonShipFee,2);
   $("totalCartons").value=fmt(totalCartons,0);
   $("shipSubtotal").value=fmt(shipSubtotal,2);
@@ -404,10 +415,11 @@ function copyResult(){
     `匹配类别: ${current.row.cat}`,
     `Base Rate: $${$("baseRate").value}`,
     `$/LB: $${$("perLb").value}`,
+    `订单渠道: ${document.getElementById('orderChannel')?.value === 'multi' ? '多渠道订单｜只计 Pick & Ship' : 'Wayfair订单｜只计 Fulfillment Fee'}`,
     `Pick & Ship: $${$("pickShip").value}/箱`,
     `Unload Fee: $${$("unloadFee").value}/箱（是否计入：${document.getElementById('includeUnload')?.value === 'yes' ? '是' : '否'}）`,
     `Fulfillment Fee: $${$("fulfillFee").value}/箱`,
-    `单箱发货费: $${$("cartonShipFee").value}`,
+    `单箱计入费用: $${$("cartonShipFee").value}`,
     `总箱数: ${$("totalCartons").value}`,
     `发货小计: $${$("shipSubtotal").value}`,
     `仓储类别: ${$("storageClass").value}`,
