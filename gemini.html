@@ -15,7 +15,7 @@
         <div class="flex flex-col md:flex-row md:items-center justify-between border-b border-slate-200 pb-4 mb-6">
             <div>
                 <h1 class="text-2xl font-bold text-slate-900 flex items-center gap-2">
-                    CG仓发货 + 仓储费用计算器 <span class="text-sm bg-purple-100 text-purple-700 px-2 py-0.5 rounded font-mono">V7.0 (Beta)</span>
+                    CG仓发货 + 仓储费用计算器 <span class="text-sm bg-purple-100 text-purple-700 px-2 py-0.5 rounded font-mono">V7.1</span>
                 </h1>
                 <p class="text-sm text-slate-500 mt-1">只需输入工厂提供的 cm 和 kg，系统自动完成换算与 CastleGate 费率精准匹配</p>
             </div>
@@ -130,8 +130,8 @@
                         <span class="font-bold text-emerald-700" id="feePickShip">$0.00</span>
                     </div>
                     <div class="flex justify-between border-b border-slate-100 pt-2 pb-2">
-                        <span class="text-slate-500">本站 Unload Fee (单箱)</span>
-                        <span class="font-semibold" id="feeUnload">$0.00</span>
+                        <span class="text-slate-400">本站 Unload Fee (单箱) <span class="text-xs font-sans">(仅参考,不计入总价)</span></span>
+                        <span class="font-semibold text-slate-400" id="feeUnload">$0.00</span>
                     </div>
                     <div class="flex justify-between border-b border-slate-100 pb-2">
                         <span class="text-slate-500">本站 Fulfillment Fee (单箱)</span>
@@ -185,7 +185,6 @@
     </div>
 
     <script>
-        // 依据提供的 CastleGate 官方三张图片进行精准数字化建模
         const rateCards = {
             'Bin - Small': { base: 12.35, lbRate: 0.17, unload: 0.02, fulfillment: 0.45, storage: { '0-90': 0.00, '91-120': 0.44, '121-180': 0.70, '181-270': 1.05, '271-365': 1.40, '365+': 4.20 }, label: 'Bin - Small | Flatware Sets' },
             'Bin - Large': { base: 15.10, lbRate: 0.17, unload: 0.09, fulfillment: 0.91, storage: { '0-90': 0.00, '91-120': 0.44, '121-180': 0.70, '181-270': 1.05, '271-365': 1.40, '365+': 4.20 }, label: 'Bin - Large | Table Lamp' },
@@ -202,7 +201,6 @@
         };
 
         function calculate() {
-            // 1. 获取基础输入数据并强制做安全数值处理
             const type = document.getElementById('prodCategory').value;
             let rawL = parseFloat(document.getElementById('inL').value) || 0;
             let rawM = parseFloat(document.getElementById('inM').value) || 0;
@@ -212,22 +210,19 @@
             let dwellDays = parseInt(document.getElementById('inDwellDays').value) || 0;
             let isMultiOnly = document.getElementById('inIsMultiOnly').value;
 
-            // 依据 Wayfair 的最长/中位/最短边定义规则，自动在后台完成大到小重排序
             let sides = [rawL, rawM, rawS].sort((a, b) => b - a);
             let L_in = sides[0] / 2.54;
             let M_in = sides[1] / 2.54;
             let S_in = sides[2] / 2.54;
 
-            // 2. 基础物理指标计算
             let girth = 2 * (M_in + S_in);
             let lPlusGirth = L_in + girth;
             let volIn3 = L_in * M_in * S_in;
             let volCuFt = volIn3 / 1728;
             let weightLbs = kg * 2.20462;
-            let dimWeight = volIn3 / 139; // 匹配截图中的139计费基础系数
+            let dimWeight = volIn3 / 139;
             let billWeight = Math.ceil(weightLbs);
 
-            // 更新类别判定界面的读数
             document.getElementById('outGirth').innerText = girth.toFixed(1) + " in";
             document.getElementById('outLGirth').innerText = lPlusGirth.toFixed(1) + " in";
             document.getElementById('outVolIn').innerText = Math.round(volIn3);
@@ -236,8 +231,7 @@
             document.getElementById('outWeightLbs').innerText = weightLbs.toFixed(2);
             document.getElementById('outBillWeight').innerText = billWeight;
 
-            // 3. 核心强判定分级匹配逻辑（严密复原表格多维度交叉阈值限制）
-            let matchedClass = 'Standard - Small'; // 降级默认安全位
+            let matchedClass = 'Standard - Small';
 
             if (type === 'Rugs') {
                 if (L_in <= 24 && weightLbs <= 25) matchedClass = 'Rugs - Small';
@@ -245,7 +239,6 @@
                 else if (L_in <= 108 && weightLbs <= 150) matchedClass = 'Rugs - Large';
                 else matchedClass = 'Large - Standard';
             } else {
-                // 普通家具阶梯判定
                 if (L_in <= 19 && M_in <= 12 && S_in <= 6 && weightLbs <= 25) {
                     matchedClass = 'Bin - Small';
                 } else if (L_in <= 26 && M_in <= 17 && S_in <= 14 && weightLbs <= 25) {
@@ -265,17 +258,15 @@
                 } else if (L_in <= 144 && weightLbs > 250 && weightLbs <= 800) {
                     matchedClass = 'Large - Heavy';
                 } else {
-                    matchedClass = 'Large - Heavy'; // 超出极值暂归入重件档
+                    matchedClass = 'Large - Heavy';
                 }
             }
 
             document.getElementById('outMatchedClass').innerText = matchedClass;
 
-            // 4. 检索并计算费率
             let card = rateCards[matchedClass];
             document.getElementById('outClassLabel').innerText = "已匹配到: " + card.label;
 
-            // 4.1 多渠道配送计算 (超出首磅费仅针对超出的部分，向上取整)
             let pickShipCost = 0;
             if (card.base !== null) {
                 document.getElementById('feeBase').innerText = "$" + card.base.toFixed(2);
@@ -289,13 +280,13 @@
                 document.getElementById('feePickShip').innerText = "超限/请询线下";
             }
 
-            // 4.2 本站订单计算
             document.getElementById('feeUnload').innerText = "$" + card.unload.toFixed(2);
             document.getElementById('feeFulfill').innerText = "$" + card.fulfillment.toFixed(2);
-            let wayfairTotal = card.unload + card.fulfillment;
+            
+            // 【核心修正位置】：Wayfair本站履约总价剔除掉 card.unload，只计算 card.fulfillment
+            let wayfairTotal = card.fulfillment; 
             document.getElementById('feeWayfairTotal').innerText = "$" + wayfairTotal.toFixed(2);
 
-            // 5. 动态仓储费核算 (复原免仓期与天数阶梯级联规则)
             let storageTier = '0-90';
             if (dwellDays <= 90) storageTier = '0-90';
             else if (dwellDays <= 120) storageTier = '91-120';
@@ -307,32 +298,27 @@
             let storageRate = card.storage[storageTier];
             let billDays = 0;
 
-            // 严密咬合脚注5风控：如果是纯多渠道项目，直接退化调用91-120天的惩罚性费率，且从第1天起扣费
             if (isMultiOnly === 'yes') {
                 if (storageTier === '0-90') {
                     storageRate = card.storage['91-120']; 
                 }
                 billDays = dwellDays;
             } else {
-                // 本站常规免仓逻辑
                 billDays = Math.max(0, dwellDays - 90);
             }
 
             document.getElementById('outStorageRate').innerText = "$" + storageRate.toFixed(2) + " (" + storageTier + ")";
             document.getElementById('outBillDays').innerText = billDays + " days";
 
-            // 仓储总费公式：体积 (cu ft) * 对应区间月度费率 * (有效计费天数 / 30) * 总件数
             let storageCostTotal = volCuFt * storageRate * (billDays / 30) * qty;
             document.getElementById('outStorageCostTotal').innerText = "$" + storageCostTotal.toFixed(2);
         }
 
-        // 捆绑所有输入项的即时触发布局，确保每一次键盘输入和下拉变更都能做到真正的毫秒级“实时计算”
         const inputs = ['prodCategory', 'inL', 'inM', 'inS', 'inWeight', 'inQty', 'inDwellDays', 'inIsMultiOnly'];
         inputs.forEach(id => {
             document.getElementById(id).addEventListener('input', calculate);
         });
 
-        // 页面初始化自动运行一次
         window.onload = calculate;
     </script>
 </body>
