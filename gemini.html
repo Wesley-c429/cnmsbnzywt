@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CG仓发货 + 仓储费用计算器 V7</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+    </style>
+</head>
+<body class="bg-slate-50 min-h-screen p-4 md:p-8 text-slate-800">
+
+    <div class="max-w-6xl mx-auto">
+        <div class="flex flex-col md:flex-row md:items-center justify-between border-b border-slate-200 pb-4 mb-6">
+            <div>
+                <h1 class="text-2xl font-bold text-slate-900 flex items-center gap-2">
+                    CG仓发货 + 仓储费用计算器 <span class="text-sm bg-purple-100 text-purple-700 px-2 py-0.5 rounded font-mono">V7.0 (Beta)</span>
+                </h1>
+                <p class="text-sm text-slate-500 mt-1">只需输入工厂提供的 cm 和 kg，系统自动完成换算与 CastleGate 费率精准匹配</p>
+            </div>
+            <div class="mt-2 md:mt-0">
+                <span class="text-xs bg-purple-50 text-purple-600 border border-purple-200 px-3 py-1.5 rounded-full font-medium">仓储费按有效计费天数精确计算</span>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+                <h2 class="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
+                    <span class="w-6 h-6 rounded-full bg-slate-900 text-white text-xs flex items-center justify-center font-bold">1</span>
+                    产品输入
+                </h2>
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-slate-600 mb-1">产品大类</label>
+                        <select id="prodCategory" class="w-full border border-slate-200 rounded-xl px-3 py-2.5 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-purple-500 focus:outline-none transition-all">
+                            <option value="General">普通家具 / General</option>
+                            <option value="Rugs">地毯 / Rugs</option>
+                        </select>
+                    </div>
+                    <div class="grid grid-cols-3 gap-3">
+                        <div>
+                            <label class="block text-xs font-medium text-slate-500 mb-1">最长边 L (cm)</label>
+                            <input type="number" id="inL" value="58" class="w-full border border-slate-200 rounded-xl px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-slate-500 mb-1">中间边 M (cm)</label>
+                            <input type="number" id="inM" value="48.5" class="w-full border border-slate-200 rounded-xl px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-slate-500 mb-1">最短边 S (cm)</label>
+                            <input type="number" id="inS" value="16" class="w-full border border-slate-200 rounded-xl px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:outline-none">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-600 mb-1">单箱实际重量 (kg)</label>
+                            <input type="number" id="inWeight" value="16.3" class="w-full border border-slate-200 rounded-xl px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-600 mb-1">发货产品数量 (件)</label>
+                            <input type="number" id="inQty" value="1" class="w-full border border-slate-200 rounded-xl px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:outline-none">
+                        </div>
+                    </div>
+                    <p class="text-xs text-slate-400 italic">注：输入的包装尺寸和重量系统会自动依最长/中/短边排序并完成 inch 和 lbs 的标准化转换。</p>
+                </div>
+            </div>
+
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+                <h2 class="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
+                    <span class="w-6 h-6 rounded-full bg-slate-900 text-white text-xs flex items-center justify-center font-bold">2</span>
+                    类别判定
+                </h2>
+                <div class="space-y-3 font-mono text-sm">
+                    <div class="flex justify-between border-b border-slate-100 pb-2">
+                        <span class="text-slate-500">围长 Girth</span>
+                        <span class="font-semibold" id="outGirth">0.0</span>
+                    </div>
+                    <div class="flex justify-between border-b border-slate-100 pb-2">
+                        <span class="text-slate-500">L + Girth</span>
+                        <span class="font-semibold" id="outLGirth">0.0</span>
+                    </div>
+                    <div class="flex justify-between border-b border-slate-100 pb-2">
+                        <span class="text-slate-500">体积 (in³)</span>
+                        <span class="font-semibold" id="outVolIn">0</span>
+                    </div>
+                    <div class="flex justify-between border-b border-slate-100 pb-2">
+                        <span class="text-slate-500">体积 (cu ft)</span>
+                        <span class="font-bold text-purple-700" id="outVolCu">0.00</span>
+                    </div>
+                    <div class="flex justify-between border-b border-slate-100 pb-2">
+                        <span class="text-slate-500">体积重 (lbs, 仅参考)</span>
+                        <span class="font-semibold" id="outDimWeight">0.00</span>
+                    </div>
+                    <div class="flex justify-between border-b border-slate-100 pb-2">
+                        <span class="text-slate-500">实际重量 (lbs)</span>
+                        <span class="font-semibold" id="outWeightLbs">0.00</span>
+                    </div>
+                    <div class="flex justify-between border-b border-slate-100 pb-2">
+                        <span class="text-slate-500">发货计费重量 (向上取整)</span>
+                        <span class="font-bold text-slate-900" id="outBillWeight">0</span>
+                    </div>
+                    <div class="mt-4 p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl flex justify-between items-center">
+                        <span class="text-xs font-sans font-medium">匹配计费类别:</span>
+                        <span class="font-bold text-base" id="outMatchedClass">Standard - Small</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+                <h2 class="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
+                    <span class="w-6 h-6 rounded-full bg-slate-900 text-white text-xs flex items-center justify-center font-bold">3</span>
+                    发货费用
+                </h2>
+                <div class="space-y-3 font-mono text-sm">
+                    <div class="p-2.5 bg-slate-50 text-slate-600 rounded-xl text-xs font-sans mb-3" id="outClassLabel">
+                        已匹配到: Standard - Small | Bar Stools
+                    </div>
+                    <div class="flex justify-between border-b border-slate-100 pb-2">
+                        <span class="text-slate-500">多渠道 Base Rate</span>
+                        <span class="font-semibold" id="feeBase">$0.00</span>
+                    </div>
+                    <div class="flex justify-between border-b border-slate-100 pb-2">
+                        <span class="text-slate-500">多渠道 $/LB (超首磅费)</span>
+                        <span class="font-semibold" id="feeLb">$0.00</span>
+                    </div>
+                    <div class="flex justify-between border-b border-slate-100 pb-2 p-1 bg-emerald-50 rounded">
+                        <span class="text-emerald-900 font-sans font-medium">多渠道 Pick & Ship (单箱)</span>
+                        <span class="font-bold text-emerald-700" id="feePickShip">$0.00</span>
+                    </div>
+                    <div class="flex justify-between border-b border-slate-100 pt-2 pb-2">
+                        <span class="text-slate-500">本站 Unload Fee (单箱)</span>
+                        <span class="font-semibold" id="feeUnload">$0.00</span>
+                    </div>
+                    <div class="flex justify-between border-b border-slate-100 pb-2">
+                        <span class="text-slate-500">本站 Fulfillment Fee (单箱)</span>
+                        <span class="font-semibold" id="feeFulfill">$0.00</span>
+                    </div>
+                    <div class="flex justify-between p-1 bg-blue-50 rounded mt-2">
+                        <span class="text-blue-900 font-sans font-medium">Wayfair本站履约总价 (单箱)</span>
+                        <span class="font-bold text-blue-700" id="feeWayfairTotal">$0.00</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+                <h2 class="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
+                    <span class="w-6 h-6 rounded-full bg-slate-900 text-white text-xs flex items-center justify-center font-bold">4</span>
+                    仓储费用
+                </h2>
+                <div class="space-y-4">
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-medium text-slate-500 mb-1">库存停留天数</label>
+                            <input type="number" id="inDwellDays" value="90" class="w-full border border-slate-200 rounded-xl px-3 py-1.5 font-mono focus:ring-2 focus:ring-purple-500 focus:outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-slate-500 mb-1">渠道特质 (无90天免仓)</label>
+                            <select id="inIsMultiOnly" class="w-full border border-slate-200 rounded-xl px-3 py-1.5 focus:ring-2 focus:ring-purple-500 focus:outline-none">
+                                <option value="no">否 (Wayfair平台正常免仓)</option>
+                                <option value="yes">是 (纯多渠道无免仓期)</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="space-y-2 pt-2 border-t border-slate-100 font-mono text-sm">
+                        <div class="flex justify-between">
+                            <span class="text-slate-500">自动匹配月度仓储费率</span>
+                            <span class="font-semibold text-slate-700" id="outStorageRate">$0.00 / cu ft</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-slate-500">有效计费天数</span>
+                            <span class="font-semibold text-slate-700" id="outBillDays">0 days</span>
+                        </div>
+                        <div class="p-3 bg-purple-50 border border-purple-200 rounded-xl flex justify-between items-center mt-3">
+                            <span class="text-xs font-sans font-medium text-purple-900">预计总仓储费 (对应货量):</span>
+                            <span class="font-bold text-lg text-purple-700" id="outStorageCostTotal">$0.00</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        // 依据提供的 CastleGate 官方三张图片进行精准数字化建模
+        const rateCards = {
+            'Bin - Small': { base: 12.35, lbRate: 0.17, unload: 0.02, fulfillment: 0.45, storage: { '0-90': 0.00, '91-120': 0.44, '121-180': 0.70, '181-270': 1.05, '271-365': 1.40, '365+': 4.20 }, label: 'Bin - Small | Flatware Sets' },
+            'Bin - Large': { base: 15.10, lbRate: 0.17, unload: 0.09, fulfillment: 0.91, storage: { '0-90': 0.00, '91-120': 0.44, '121-180': 0.70, '181-270': 1.05, '271-365': 1.40, '365+': 4.20 }, label: 'Bin - Large | Table Lamp' },
+            'Bin - Heavy': { base: 15.42, lbRate: 0.17, unload: 0.12, fulfillment: 1.81, storage: { '0-90': 0.00, '91-120': 0.44, '121-180': 0.70, '181-270': 1.05, '271-365': 1.40, '365+': 4.20 }, label: 'Bin - Heavy | Nightstand' },
+            'Standard - Small': { base: 17.05, lbRate: 0.20, unload: 0.33, fulfillment: 3.15, storage: { '0-90': 0.00, '91-120': 0.44, '121-180': 0.70, '181-270': 1.05, '271-365': 1.40, '365+': 4.20 }, label: 'Standard - Small | Bar Stools' },
+            'Standard - Medium': { base: 23.78, lbRate: 0.24, unload: 0.54, fulfillment: 3.88, storage: { '0-90': 0.00, '91-120': 0.44, '121-180': 0.70, '181-270': 1.05, '271-365': 1.40, '365+': 4.20 }, label: 'Standard - Medium | Coffee Tables' },
+            'Standard - Large': { base: 49.83, lbRate: 0.31, unload: 0.77, fulfillment: 4.49, storage: { '0-90': 0.00, '91-120': 0.44, '121-180': 0.70, '181-270': 1.05, '271-365': 1.40, '365+': 4.20 }, label: 'Standard - Large | TV Stand' },
+            'Standard - Oversize': { base: 52.43, lbRate: 0.34, unload: 0.57, fulfillment: 4.80, storage: { '0-90': 0.00, '91-120': 0.44, '121-180': 0.70, '181-270': 1.05, '271-365': 1.40, '365+': 4.20 }, label: 'Standard - Oversize | Headboard' },
+            'Large - Standard': { base: null, lbRate: null, unload: 2.55, fulfillment: 8.08, storage: { '0-90': 0.00, '91-120': 0.35, '121-180': 0.56, '181-270': 0.84, '271-365': 1.12, '365+': 3.36 }, label: 'Large - Standard | Sofa' },
+            'Large - Heavy': { base: null, lbRate: null, unload: 4.96, fulfillment: 12.00, storage: { '0-90': 0.00, '91-120': 0.35, '121-180': 0.56, '181-270': 0.84, '271-365': 1.12, '365+': 3.36 }, label: 'Large - Heavy | Dresser & Chest' },
+            'Rugs - Small': { base: 16.91, lbRate: 0.22, unload: 0.04, fulfillment: 1.47, storage: { '0-90': 0.00, '91-120': 0.44, '121-180': 0.70, '181-270': 1.05, '271-365': 1.40, '365+': 4.20 }, label: 'Rugs - Small | 2\' x 3\' Rugs' },
+            'Rugs - Medium': { base: 36.13, lbRate: 0.24, unload: 0.17, fulfillment: 3.00, storage: { '0-90': 0.00, '91-120': 0.44, '121-180': 0.70, '181-270': 1.05, '271-365': 1.40, '365+': 4.20 }, label: 'Rugs - Medium | 5\' x 8\' Rugs' },
+            'Rugs - Large': { base: 51.10, lbRate: 0.30, unload: 0.37, fulfillment: 4.20, storage: { '0-90': 0.00, '91-120': 0.44, '121-180': 0.70, '181-270': 1.05, '271-365': 1.40, '365+': 4.20 }, label: 'Rugs - Large | 9\' x 12\' Rugs' }
+        };
+
+        function calculate() {
+            // 1. 获取基础输入数据并强制做安全数值处理
+            const type = document.getElementById('prodCategory').value;
+            let rawL = parseFloat(document.getElementById('inL').value) || 0;
+            let rawM = parseFloat(document.getElementById('inM').value) || 0;
+            let rawS = parseFloat(document.getElementById('inS').value) || 0;
+            let kg = parseFloat(document.getElementById('inWeight').value) || 0;
+            let qty = parseInt(document.getElementById('inQty').value) || 1;
+            let dwellDays = parseInt(document.getElementById('inDwellDays').value) || 0;
+            let isMultiOnly = document.getElementById('inIsMultiOnly').value;
+
+            // 依据 Wayfair 的最长/中位/最短边定义规则，自动在后台完成大到小重排序
+            let sides = [rawL, rawM, rawS].sort((a, b) => b - a);
+            let L_in = sides[0] / 2.54;
+            let M_in = sides[1] / 2.54;
+            let S_in = sides[2] / 2.54;
+
+            // 2. 基础物理指标计算
+            let girth = 2 * (M_in + S_in);
+            let lPlusGirth = L_in + girth;
+            let volIn3 = L_in * M_in * S_in;
+            let volCuFt = volIn3 / 1728;
+            let weightLbs = kg * 2.20462;
+            let dimWeight = volIn3 / 139; // 匹配截图中的139计费基础系数
+            let billWeight = Math.ceil(weightLbs);
+
+            // 更新类别判定界面的读数
+            document.getElementById('outGirth').innerText = girth.toFixed(1) + " in";
+            document.getElementById('outLGirth').innerText = lPlusGirth.toFixed(1) + " in";
+            document.getElementById('outVolIn').innerText = Math.round(volIn3);
+            document.getElementById('outVolCu').innerText = volCuFt.toFixed(2);
+            document.getElementById('outDimWeight').innerText = dimWeight.toFixed(2);
+            document.getElementById('outWeightLbs').innerText = weightLbs.toFixed(2);
+            document.getElementById('outBillWeight').innerText = billWeight;
+
+            // 3. 核心强判定分级匹配逻辑（严密复原表格多维度交叉阈值限制）
+            let matchedClass = 'Standard - Small'; // 降级默认安全位
+
+            if (type === 'Rugs') {
+                if (L_in <= 24 && weightLbs <= 25) matchedClass = 'Rugs - Small';
+                else if (L_in <= 96 && weightLbs <= 150) matchedClass = 'Rugs - Medium';
+                else if (L_in <= 108 && weightLbs <= 150) matchedClass = 'Rugs - Large';
+                else matchedClass = 'Large - Standard';
+            } else {
+                // 普通家具阶梯判定
+                if (L_in <= 19 && M_in <= 12 && S_in <= 6 && weightLbs <= 25) {
+                    matchedClass = 'Bin - Small';
+                } else if (L_in <= 26 && M_in <= 17 && S_in <= 14 && weightLbs <= 25) {
+                    matchedClass = 'Bin - Large';
+                } else if (L_in <= 26 && M_in <= 17 && S_in <= 14 && weightLbs > 25 && weightLbs <= 50) {
+                    matchedClass = 'Bin - Heavy';
+                } else if (L_in <= 48 && M_in <= 30 && S_in <= 30 && lPlusGirth <= 105 && weightLbs <= 50) {
+                    matchedClass = 'Standard - Small';
+                } else if (L_in <= 96 && lPlusGirth <= 130 && weightLbs <= 110) {
+                    matchedClass = 'Standard - Medium';
+                } else if (L_in <= 108 && lPlusGirth <= 165 && weightLbs <= 120) {
+                    matchedClass = 'Standard - Large';
+                } else if (L_in <= 108 && lPlusGirth <= 165 && weightLbs <= 150) {
+                    matchedClass = 'Standard - Oversize';
+                } else if (weightLbs <= 250) {
+                    matchedClass = 'Large - Standard';
+                } else if (L_in <= 144 && weightLbs > 250 && weightLbs <= 800) {
+                    matchedClass = 'Large - Heavy';
+                } else {
+                    matchedClass = 'Large - Heavy'; // 超出极值暂归入重件档
+                }
+            }
+
+            document.getElementById('outMatchedClass').innerText = matchedClass;
+
+            // 4. 检索并计算费率
+            let card = rateCards[matchedClass];
+            document.getElementById('outClassLabel').innerText = "已匹配到: " + card.label;
+
+            // 4.1 多渠道配送计算 (超出首磅费仅针对超出的部分，向上取整)
+            let pickShipCost = 0;
+            if (card.base !== null) {
+                document.getElementById('feeBase').innerText = "$" + card.base.toFixed(2);
+                document.getElementById('feeLb').innerText = "$" + card.lbRate.toFixed(2);
+                let extraWeight = Math.max(0, billWeight - 1);
+                pickShipCost = card.base + (extraWeight * card.lbRate);
+                document.getElementById('feePickShip').innerText = "$" + pickShipCost.toFixed(2);
+            } else {
+                document.getElementById('feeBase').innerText = "N/A";
+                document.getElementById('feeLb').innerText = "N/A";
+                document.getElementById('feePickShip').innerText = "超限/请询线下";
+            }
+
+            // 4.2 本站订单计算
+            document.getElementById('feeUnload').innerText = "$" + card.unload.toFixed(2);
+            document.getElementById('feeFulfill').innerText = "$" + card.fulfillment.toFixed(2);
+            let wayfairTotal = card.unload + card.fulfillment;
+            document.getElementById('feeWayfairTotal').innerText = "$" + wayfairTotal.toFixed(2);
+
+            // 5. 动态仓储费核算 (复原免仓期与天数阶梯级联规则)
+            let storageTier = '0-90';
+            if (dwellDays <= 90) storageTier = '0-90';
+            else if (dwellDays <= 120) storageTier = '91-120';
+            else if (dwellDays <= 180) storageTier = '121-180';
+            else if (dwellDays <= 270) storageTier = '181-270';
+            else if (dwellDays <= 365) storageTier = '271-365';
+            else storageTier = '365+';
+
+            let storageRate = card.storage[storageTier];
+            let billDays = 0;
+
+            // 严密咬合脚注5风控：如果是纯多渠道项目，直接退化调用91-120天的惩罚性费率，且从第1天起扣费
+            if (isMultiOnly === 'yes') {
+                if (storageTier === '0-90') {
+                    storageRate = card.storage['91-120']; 
+                }
+                billDays = dwellDays;
+            } else {
+                // 本站常规免仓逻辑
+                billDays = Math.max(0, dwellDays - 90);
+            }
+
+            document.getElementById('outStorageRate').innerText = "$" + storageRate.toFixed(2) + " (" + storageTier + ")";
+            document.getElementById('outBillDays').innerText = billDays + " days";
+
+            // 仓储总费公式：体积 (cu ft) * 对应区间月度费率 * (有效计费天数 / 30) * 总件数
+            let storageCostTotal = volCuFt * storageRate * (billDays / 30) * qty;
+            document.getElementById('outStorageCostTotal').innerText = "$" + storageCostTotal.toFixed(2);
+        }
+
+        // 捆绑所有输入项的即时触发布局，确保每一次键盘输入和下拉变更都能做到真正的毫秒级“实时计算”
+        const inputs = ['prodCategory', 'inL', 'inM', 'inS', 'inWeight', 'inQty', 'inDwellDays', 'inIsMultiOnly'];
+        inputs.forEach(id => {
+            document.getElementById(id).addEventListener('input', calculate);
+        });
+
+        // 页面初始化自动运行一次
+        window.onload = calculate;
+    </script>
+</body>
+</html>
