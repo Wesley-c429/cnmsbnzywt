@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CG仓费用计算器 V8 - 渠道计费版</title>
+  <style>
+    :root{
+      --bg:#f4f6f8;--card:#fff;--text:#172033;--muted:#64748b;--line:#d8dee8;
+      --blue:#e8f2fb;--blue2:#cfe4f7;--yellow:#fff7d6;--green:#e8f7ee;--red:#fff1f1;
+      --purple:#efe7f8;--dark:#2f2540;--accent:#2563eb;--shadow:0 10px 30px rgba(15,23,42,.08)
+    }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:Arial,"Microsoft YaHei",sans-serif;background:var(--bg);color:var(--text)}
+    .wrap{max-width:1260px;margin:26px auto;padding:0 18px 42px}
+    .header{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;margin-bottom:18px}
+    h1{margin:0 0 8px;font-size:28px;letter-spacing:-.02em}
+    .sub{color:var(--muted);font-size:14px;line-height:1.6}
+    .tag{display:inline-block;background:var(--purple);border:1px solid #c7a6df;color:#4b256e;border-radius:999px;padding:6px 10px;font-size:12px;font-weight:700}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+    .card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:18px;box-shadow:var(--shadow)}
+    .full{grid-column:1/-1}
+    h2{margin:0 0 14px;font-size:18px;display:flex;align-items:center;gap:8px}
+    .badge{display:inline-flex;align-items:center;justify-content:center;min-width:24px;height:24px;border-radius:999px;background:#111827;color:white;font-size:13px;font-weight:800}
+    .row{display:grid;grid-template-columns:190px 1fr 86px;gap:10px;align-items:center;margin:9px 0}
+    .row.two{grid-template-columns:190px 1fr}
+    label{font-size:14px;color:#374151}
+    input,select{width:100%;height:36px;border:1px solid #cbd5e1;border-radius:10px;padding:0 10px;font-size:14px;background:white;outline:none}
+    input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(37,99,235,.12)}
+    .unit{font-size:13px;color:var(--muted)}
+    .manual{background:var(--yellow)}
+    .result{background:var(--blue);border-color:var(--blue2);font-weight:700}
+    .summary{background:var(--green);border-color:#bfe8cc;font-weight:800}
+    .danger{background:var(--red);border-color:#f1c2c2;font-weight:800}
+    .note{font-size:12px;color:var(--muted);line-height:1.55;margin-top:8px}
+    .mini{font-size:12px;color:var(--muted)}
+    .warn{background:#fff7ed;border:1px solid #fed7aa;border-radius:12px;padding:10px 12px;color:#7c2d12;font-size:13px;line-height:1.55}
+    .ok{background:#ecfdf5;border:1px solid #bbf7d0;border-radius:12px;padding:10px 12px;color:#14532d;font-size:13px;line-height:1.55}
+    .kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-top:12px}
+    .kpi{background:#f8fafc;border:1px solid var(--line);border-radius:14px;padding:14px}
+    .kpi .name{color:var(--muted);font-size:12px;margin-bottom:6px}
+    .kpi .value{font-size:22px;font-weight:900}
+    .btns{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
+    button{height:38px;border:0;border-radius:12px;padding:0 14px;font-size:14px;font-weight:800;cursor:pointer;background:#111827;color:white}
+    button.secondary{background:#e5e7eb;color:#111827}
+    .table-wrap{overflow:auto;border:1px solid var(--line);border-radius:14px}
+    table{width:100%;border-collapse:collapse;font-size:13px}
+    th,td{border-bottom:1px solid var(--line);padding:9px 8px;text-align:right;white-space:nowrap}
+    th:first-child,td:first-child{text-align:left}
+    th{background:var(--dark);color:white;font-weight:800}
+    .purple-head th{background:#5b3b78}
+    .split{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+    @media(max-width:980px){.grid,.kpis,.split{grid-template-columns:1fr}.header{flex-direction:column}.row{grid-template-columns:145px 1fr 58px}}
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <div class="header">
+    <div>
+      <h1>CG仓发货 + 仓储费用计算器 V8</h1>
+      <div class="sub">只输入工厂提供的 cm 和 kg。系统自动换算 inch、lbs、cu ft，并用换算后的结果匹配 CG 费用。按订单渠道选择计费项发货成本，可按需要手动开启。</div>
+    </div>
+    <div class="tag">按订单渠道选择计费项</div>
+  </div>
+
+  <div class="grid">
+    <section class="card">
+      <h2><span class="badge">1</span>产品输入</h2>
+      <div class="row"><label>最长边 L</label><input id="L" type="number" step="0.01" value="58" class="manual"><span class="unit">cm</span></div>
+      <div class="row"><label>中间边 M</label><input id="M" type="number" step="0.01" value="48.5" class="manual"><span class="unit">cm</span></div>
+      <div class="row"><label>最短边 S</label><input id="S" type="number" step="0.01" value="16" class="manual"><span class="unit">cm</span></div>
+      <div class="row"><label>单箱实际重量</label><input id="kg" type="number" step="0.01" value="16.3" class="manual"><span class="unit">kg</span></div>
+      <div class="row"><label>发货产品数量</label><input id="qty" type="number" step="1" value="1" class="manual"><span class="unit">件</span></div>
+      <div class="row"><label>每件箱数</label><input id="cartonsPerUnit" type="number" step="1" value="1" class="manual"><span class="unit">箱/件</span></div>
+      <div class="row two">
+        <label>产品大类</label>
+        <select id="productGroup" class="manual">
+          <option value="general">普通家具 / General</option>
+          <option value="rug">Rugs 地毯</option>
+          <option value="bin">Bin 小件</option>
+        </select>
+      </div>
+      <div class="row two">
+        <label>订单渠道 / 计费口径</label>
+        <select id="orderChannel" class="manual">
+          <option value="wayfair">Wayfair订单｜只计 Fulfillment Fee</option>
+          <option value="multi">多渠道订单｜只计 Pick & Ship</option>
+        </select>
+      </div>
+      <div class="note">输入的是“单箱”包装尺寸和重量，单位固定为 cm 和 kg。系统后台自动换算为 inch 和 lbs。多箱产品建议按每个箱子分别算，或使用“每件箱数”做近似乘算。</div>
+    </section>
+
+    <section class="card">
+      <h2><span class="badge">2</span>类别判定</h2>
+      <div class="row"><label>围长 Girth</label><input id="girth" class="result" readonly><span class="unit">in</span></div>
+      <div class="row"><label>L + Girth</label><input id="lgirth" class="result" readonly><span class="unit">in</span></div>
+      <div class="row"><label>体积</label><input id="volin" class="result" readonly><span class="unit">in³</span></div>
+      <div class="row"><label>体积</label><input id="cuft" class="result" readonly><span class="unit">cu ft</span></div>
+      <div class="row"><label>体积重</label><input id="dimwt" class="result" readonly><span class="unit">lbs，仅参考</span></div>
+      <div class="row"><label>实际重量</label><input id="actlbs" class="result" readonly><span class="unit">lbs</span></div>
+      <div class="row"><label>发货计费重量</label><input id="feeWeight" class="result" readonly><span class="unit">lbs</span></div>
+      <div class="row"><label>匹配计费类别</label><input id="rateCategory" class="summary" readonly><span></span></div>
+      <div class="note">发货计费重量会向上取整；Pick & Ship 的 $/LB 只作用于超过首磅的部分。</div>
+    </section>
+
+    <section class="card">
+      <h2><span class="badge">3</span>发货费用</h2>
+      <div id="matchBox" class="ok">已匹配价卡。</div>
+      <br>
+      <div class="row"><label>Base Rate</label><input id="baseRate" class="result" readonly><span class="unit">$</span></div>
+      <div class="row"><label>$ / LB</label><input id="perLb" class="result" readonly><span class="unit">$/lb</span></div>
+      <div class="row"><label>Pick & Ship</label><input id="pickShip" class="summary" readonly><span class="unit">$/箱</span></div>
+      <div class="row"><label>Unload Fee</label><input id="unloadFee" class="result" readonly><span class="unit">$/箱</span></div>
+      <div class="row"><label>Fulfillment Fee</label><input id="fulfillFee" class="result" readonly><span class="unit">$/箱</span></div>
+      <div class="row two">
+        <label>是否计入 Unload Fee</label>
+        <select id="includeUnload" class="manual">
+          <option value="no">否｜默认不计入发货成本</option>
+          <option value="yes">是｜计入本次总成本</option>
+        </select>
+      </div>
+      <div class="row"><label>当前计入主费用</label><input id="channelBaseFee" class="summary" readonly><span class="unit">$/箱</span></div>
+      <div class="row"><label>单箱计入费用</label><input id="cartonShipFee" class="summary" readonly><span class="unit">$/箱</span></div>
+      <div class="row"><label>总箱数</label><input id="totalCartons" class="result" readonly><span class="unit">箱</span></div>
+      <div class="row"><label>发货费小计</label><input id="shipSubtotal" class="summary" readonly><span class="unit">$</span></div>
+      <div class="note">发货费小计 = 总箱数 × 单箱发货费；单箱计入费用按订单渠道选择：多渠道 = Pick & Ship；Wayfair = Fulfillment Fee。Unload Fee 默认不计入。</div>
+    </section>
+
+    <section class="card">
+      <h2><span class="badge">4</span>仓储费用</h2>
+      <div class="row two">
+        <label>仓储类别</label>
+        <select id="storageClass" class="manual"></select>
+      </div>
+      <div class="row"><label>仓储库存数</label><input id="storageQty" type="number" step="1" value="0" class="manual"><span class="unit">件</span></div>
+      <div class="row"><label>库存停留天数</label><input id="dwellDays" type="number" step="1" value="90" class="manual"><span class="unit">days</span></div>
+      <div class="row"><label>多渠道无90天免仓</label>
+        <select id="multiChannel" class="manual"><option value="no">否</option><option value="yes">是</option></select><span></span>
+      </div>
+      <div class="row"><label>自动匹配费率</label><input id="storageRate" class="result" readonly><span class="unit">$/cu ft/月</span></div>
+      <div class="row"><label>有效计费天数</label><input id="storageBillableDays" class="result" readonly><span class="unit">days</span></div>
+      <div class="row"><label>单件仓储体积</label><input id="unitStorageCuft" class="result" readonly><span class="unit">cu ft</span></div>
+      <div class="row"><label>仓储费</label><input id="storageFee" class="summary" readonly><span class="unit">$</span></div>
+      <div class="note">仓储费按分段有效计费天数计算：0–90 天免费，91–120 天只计超出 90 天的部分；多渠道无 90 天免仓时，91–120 天费率从第 1 天起生效。</div>
+    </section>
+
+    <section class="card full">
+      <h2><span class="badge">5</span>结果汇总</h2>
+      <div class="kpis">
+        <div class="kpi"><div class="name">计费类别</div><div class="value" id="kpiCategory">-</div></div>
+        <div class="kpi"><div class="name">单箱计入费用</div><div class="value" id="kpiCarton">$0.00</div></div>
+        <div class="kpi"><div class="name">发货小计</div><div class="value" id="kpiShipSubtotal">$0.00</div></div>
+        <div class="kpi"><div class="name">仓储费率</div><div class="value" id="kpiRate">$0.00</div></div>
+        <div class="kpi"><div class="name">仓储费</div><div class="value" id="kpiStorage">$0.00</div></div>
+        <div class="kpi"><div class="name">总费用</div><div class="value" id="kpiTotal">$0.00</div></div>
+      </div>
+      <div class="btns">
+        <button onclick="copyResult()">复制计算结果</button>
+        <button class="secondary" onclick="loadSmallExample()">载入你截图样例</button>
+        <button class="secondary" onclick="loadDresserExample()">载入大件斗柜样例</button>
+      </div>
+      <div class="note" id="copyNote"></div>
+    </section>
+
+    <section class="card full">
+      <h2><span class="badge">6</span>费率表预览</h2>
+      <div class="split">
+        <div>
+          <div class="note"><b>Pick & Ship</b>：Base Rate + $/LB × max(0, ceil(发货计费重量) - 1)</div>
+          <div class="table-wrap"><table id="pickShipTable"></table></div>
+        </div>
+        <div>
+          <div class="note"><b>Unload + Fulfillment</b>：按单箱计费；Unload 默认不计入发货成本</div>
+          <div class="table-wrap"><table id="deliveryTable"></table></div>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<script>
+const rateRows = [
+  {group:"bin", cat:"Bin - Single Pick 1 Carton", base:12.57, perLb:0.15, unload:0.02, fulfill:0.26, desc:"Cabinet Knobs / Curtain Panels", maxL:null,maxM:null,maxS:null,maxLG:null,minW:0,maxW:25},
+  {group:"bin", cat:"Bin - Single Pick 2 Cartons", base:7.70, perLb:0.15, unload:0.02, fulfill:0.26, desc:"Cabinet Knobs / Curtain Panels", maxL:null,maxM:null,maxS:null,maxLG:null,minW:0,maxW:25},
+  {group:"bin", cat:"Bin - Single Pick 3 Cartons", base:6.07, perLb:0.15, unload:0.02, fulfill:0.26, desc:"Cabinet Knobs / Curtain Panels", maxL:null,maxM:null,maxS:null,maxLG:null,minW:0,maxW:25},
+  {group:"bin", cat:"Bin - Single Pick 4 Cartons", base:5.61, perLb:0.17, unload:0.02, fulfill:0.26, desc:"Cabinet Knobs / Curtain Panels", maxL:null,maxM:null,maxS:null,maxLG:null,minW:0,maxW:25},
+  {group:"bin", cat:"Bin - Single Pick 5+ Cartons", base:4.98, perLb:0.17, unload:0.02, fulfill:0.26, desc:"Cabinet Knobs / Curtain Panels", maxL:null,maxM:null,maxS:null,maxLG:null,minW:0,maxW:25},
+  {group:"bin", cat:"Bin - Small", base:12.35, perLb:0.17, unload:0.02, fulfill:0.45, desc:"Flatware Sets", maxL:19,maxM:12,maxS:6,maxLG:null,minW:0,maxW:25},
+  {group:"bin", cat:"Bin - Large", base:15.10, perLb:0.17, unload:0.09, fulfill:0.91, desc:"Table Lamp", maxL:26,maxM:17,maxS:14,maxLG:null,minW:0,maxW:25},
+  {group:"bin", cat:"Bin - Heavy", base:15.42, perLb:0.17, unload:0.12, fulfill:1.81, desc:"Nightstand", maxL:26,maxM:17,maxS:14,maxLG:null,minW:25,maxW:50},
+
+  {group:"general", cat:"Standard - Small", base:17.05, perLb:0.20, unload:0.33, fulfill:3.15, desc:"Bar Stools", maxL:48,maxM:30,maxS:30,maxLG:105,minW:0,maxW:50},
+  {group:"general", cat:"Standard - Medium", base:23.78, perLb:0.24, unload:0.54, fulfill:3.88, desc:"Coffee Tables", maxL:96,maxM:null,maxS:null,maxLG:130,minW:0,maxW:110},
+  {group:"general", cat:"Standard - Large", base:49.83, perLb:0.31, unload:0.77, fulfill:4.49, desc:"TV Stand", maxL:108,maxM:null,maxS:null,maxLG:165,minW:0,maxW:120},
+  {group:"general", cat:"Standard - Oversize", base:52.43, perLb:0.34, unload:0.57, fulfill:4.80, desc:"Headboard", maxL:108,maxM:null,maxS:null,maxLG:165,minW:0,maxW:150},
+  {group:"general", cat:"Large - Standard", base:52.43, perLb:0.34, unload:2.55, fulfill:8.08, desc:"Sofa", maxL:null,maxM:null,maxS:null,maxLG:null,minW:0,maxW:250, large:true},
+  {group:"general", cat:"Large - Heavy", base:52.43, perLb:0.34, unload:4.96, fulfill:12.00, desc:"Dresser & Chest", maxL:144,maxM:null,maxS:null,maxLG:null,minW:250,maxW:800, large:true},
+
+  {group:"rug", cat:"Rugs - Small Rug", base:16.91, perLb:0.22, unload:0.04, fulfill:1.47, desc:"2' x 3' Rugs", maxL:24,maxM:null,maxS:null,maxLG:null,minW:0,maxW:25},
+  {group:"rug", cat:"Rugs - Medium Rug", base:36.13, perLb:0.24, unload:0.17, fulfill:3.00, desc:"5' x 8' Rugs", maxL:96,maxM:null,maxS:null,maxLG:null,minW:0,maxW:150},
+  {group:"rug", cat:"Rugs - Large Rug", base:51.10, perLb:0.30, unload:0.37, fulfill:4.20, desc:"9' x 12' Rugs", maxL:108,maxM:null,maxS:null,maxLG:null,minW:0,maxW:150}
+];
+
+const standardStorage = { "0-90":0, "91-120":0.44, "121-180":0.70, "181-270":1.05, "271-365":1.40, "365+":4.20 };
+const largeStorage = { "0-90":0, "91-120":0.35, "121-180":0.56, "181-270":0.84, "271-365":1.12, "365+":3.36 };
+const storageClasses = [
+  {key:"Bin - Single Pick", desc:"Cabinet Knobs / Curtain Panels", rates:standardStorage},
+  {key:"Bin - Small", desc:"Flatware Sets", rates:standardStorage},
+  {key:"Bin - Large", desc:"Table Lamp", rates:standardStorage},
+  {key:"Bin - Heavy", desc:"Nightstand", rates:standardStorage},
+  {key:"Standard - Small", desc:"Bar Stools", rates:standardStorage},
+  {key:"Standard - Medium", desc:"Coffee Tables", rates:standardStorage},
+  {key:"Standard - Large", desc:"TV Stand", rates:standardStorage},
+  {key:"Standard - Oversize", desc:"Headboard", rates:standardStorage},
+  {key:"Large - Standard", desc:"Sofa", rates:largeStorage},
+  {key:"Large - Heavy", desc:"Dresser & Chest", rates:largeStorage},
+  {key:"Rugs - Small Rug", desc:"2' x 3' Rugs", rates:standardStorage},
+  {key:"Rugs - Medium Rug", desc:"5' x 8' Rugs", rates:standardStorage},
+  {key:"Rugs - Large Rug", desc:"9' x 12' Rugs", rates:standardStorage}
+];
+
+const $ = id => document.getElementById(id);
+const num = id => Number($(id).value || 0);
+const fmt = (n,d=2) => Number.isFinite(n) ? Number(n).toFixed(d) : "0.00";
+const money = n => `$${Number(n || 0).toFixed(2)}`;
+const ceilWeight = n => Math.ceil(Number(n || 0));
+
+let current = {};
+
+function init(){
+  $("storageClass").innerHTML = storageClasses.map(x=>`<option value="${x.key}">${x.key}｜${x.desc}</option>`).join("");
+  $("storageClass").value = "Standard - Small";
+  ["L","M","S","kg","qty","cartonsPerUnit","productGroup","storageQty","dwellDays","multiChannel","storageClass","includeUnload","orderChannel"].forEach(id => {
+    $(id).addEventListener("input", calculate);
+    $(id).addEventListener("change", calculate);
+  });
+  renderTables();
+  calculate();
+}
+
+function sortedDims(L,M,S){ return [Number(L),Number(M),Number(S)].sort((a,b)=>b-a); }
+
+function rowFits(row, Lin, Min, Sin, LG, weight){
+  const wOk = weight > row.minW && weight <= row.maxW || (row.minW === 0 && weight >= 0 && weight <= row.maxW);
+  if(!wOk) return false;
+  if(row.maxL !== null && Lin > row.maxL) return false;
+  if(row.maxM !== null && Min > row.maxM) return false;
+  if(row.maxS !== null && Sin > row.maxS) return false;
+  if(row.maxLG !== null && LG > row.maxLG) return false;
+  return true;
+}
+
+function chooseRate(group, cartons, Lin, Min, Sin, LG, weight){
+  if(group === "bin"){
+    // Single Pick 以箱数优先，但仍保留小/大/重物件的维度分类
+    if(Lin <= 19 && Min <= 12 && Sin <= 6 && weight <= 25) return rateRows.find(r=>r.cat==="Bin - Small");
+    if(Lin <= 26 && Min <= 17 && Sin <= 14 && weight <= 25) return rateRows.find(r=>r.cat==="Bin - Large");
+    if(Lin <= 26 && Min <= 17 && Sin <= 14 && weight > 25 && weight <= 50) return rateRows.find(r=>r.cat==="Bin - Heavy");
+    const c = cartons >= 5 ? "5+ Cartons" : `${Math.max(1, Math.min(4, cartons))} Carton${cartons===1?"":"s"}`;
+    return rateRows.find(r=>r.cat.includes(c)) || rateRows.find(r=>r.cat==="Bin - Single Pick 1 Carton");
+  }
+
+  const rows = rateRows.filter(r => r.group === group);
+  for(const r of rows){
+    if(rowFits(r, Lin, Min, Sin, LG, weight)) return r;
+  }
+
+  // 普通家具超出 Standard 后，进入 Large；表中 Large Standard 没有清晰尺寸，按重量兜底。
+  if(group === "general"){
+    if(weight <= 250) return rateRows.find(r=>r.cat==="Large - Standard");
+    if(weight <= 800) return rateRows.find(r=>r.cat==="Large - Heavy");
+  }
+
+  return null;
+}
+
+function bandForDays(days, multiNoFree){
+  if(multiNoFree && days <= 120) return "91-120";
+  if(days <= 90) return "0-90";
+  if(days <= 120) return "91-120";
+  if(days <= 180) return "121-180";
+  if(days <= 270) return "181-270";
+  if(days <= 365) return "271-365";
+  return "365+";
+}
+
+function chargeDaysForBand(days, startExclusive, endInclusive){
+  return Math.max(0, Math.min(days, endInclusive) - startExclusive);
+}
+
+function currentStorageRate(){
+  const cls = storageClasses.find(x => x.key === $("storageClass").value) || storageClasses[0];
+  const days = Math.max(0, num("dwellDays"));
+  const multiNoFree = $("multiChannel").value === "yes";
+  const band = bandForDays(days, multiNoFree);
+  const activeRate = cls.rates[band] ?? 0;
+
+  let segments = [];
+  if(multiNoFree){
+    // 多渠道无 90 天免仓：91–120 天费率从第 1 天起生效
+    segments.push({band:"91-120", days: Math.min(days, 120), rate: cls.rates["91-120"]});
+    segments.push({band:"121-180", days: chargeDaysForBand(days, 120, 180), rate: cls.rates["121-180"]});
+    segments.push({band:"181-270", days: chargeDaysForBand(days, 180, 270), rate: cls.rates["181-270"]});
+    segments.push({band:"271-365", days: chargeDaysForBand(days, 270, 365), rate: cls.rates["271-365"]});
+    segments.push({band:"365+", days: Math.max(0, days - 365), rate: cls.rates["365+"]});
+  } else {
+    // 普通库存：0–90 天免费；第 91 天开始只对超出的天数收费
+    segments.push({band:"91-120", days: chargeDaysForBand(days, 90, 120), rate: cls.rates["91-120"]});
+    segments.push({band:"121-180", days: chargeDaysForBand(days, 120, 180), rate: cls.rates["121-180"]});
+    segments.push({band:"181-270", days: chargeDaysForBand(days, 180, 270), rate: cls.rates["181-270"]});
+    segments.push({band:"271-365", days: chargeDaysForBand(days, 270, 365), rate: cls.rates["271-365"]});
+    segments.push({band:"365+", days: Math.max(0, days - 365), rate: cls.rates["365+"]});
+  }
+
+  const billableDays = segments.reduce((sum, s) => sum + s.days, 0);
+  const rateDayFactor = segments.reduce((sum, s) => sum + (s.days * s.rate / 30), 0);
+  return {band, rate: activeRate, cls, billableDays, rateDayFactor, segments};
+}
+
+function syncStorageClass(rateCat){
+  const currentVal = $("storageClass").value;
+  const valid = storageClasses.some(x => x.key === rateCat);
+  // 只在当前是默认值或与分类完全一致时自动同步，避免覆盖用户手动选择。
+  if(valid && (currentVal === "" || current.lastAutoStorage === currentVal)){
+    $("storageClass").value = rateCat;
+    current.lastAutoStorage = rateCat;
+  }
+}
+
+function calculate(){
+  let dims = sortedDims(num("L"),num("M"),num("S"));
+  let Lcm=dims[0], Mcm=dims[1], Scm=dims[2];
+  let Lin=Lcm/2.54, Min=Mcm/2.54, Sin=Scm/2.54;
+  let girth=2*(Min+Sin), lgirth=Lin+girth, volin=Lin*Min*Sin, cuft=volin/1728;
+  let dimwt=volin/139, actlbs=num("kg")*2.20462;
+  let chargeable = Math.max(dimwt, actlbs);
+  let rawFeeWeight = actlbs;
+  let feeWeight = ceilWeight(rawFeeWeight);
+  let totalCartons = Math.max(0, num("qty")) * Math.max(1, num("cartonsPerUnit"));
+  let row = chooseRate($("productGroup").value, Math.max(1, num("cartonsPerUnit")), Lin, Min, Sin, lgirth, feeWeight);
+
+  $("girth").value=fmt(girth,1);
+  $("lgirth").value=fmt(lgirth,1);
+  $("volin").value=fmt(volin,0);
+  $("cuft").value=fmt(cuft,2);
+  $("dimwt").value=fmt(dimwt,2);
+  $("actlbs").value=fmt(actlbs,2);
+  $("feeWeight").value=fmt(feeWeight,0);
+
+  if(!row){
+    $("rateCategory").value="未匹配";
+    $("rateCategory").className="danger";
+    $("matchBox").className="warn";
+    $("matchBox").innerHTML="当前尺寸/重量没有匹配到表内类别，请检查尺寸、重量或产品大类。";
+    ["baseRate","perLb","pickShip","unloadFee","fulfillFee","cartonShipFee","shipSubtotal"].forEach(id=>$(id).value="0.00");
+    current = {row:null, total:0, cuft, feeWeight, totalCartons};
+    return;
+  }
+
+  $("rateCategory").value=row.cat;
+  $("rateCategory").className=row.large ? "danger" : "summary";
+  $("matchBox").className="ok";
+  $("matchBox").innerHTML=`已匹配到：<b>${row.cat}</b>｜${row.desc}`;
+
+  let extraLbs = Math.max(0, feeWeight - 1);
+  let pickShip = row.base + row.perLb * extraLbs;
+  let includeUnload = document.getElementById('includeUnload')?.value === 'yes';
+  let orderChannel = document.getElementById('orderChannel')?.value || 'wayfair';
+  let channelBaseFee = orderChannel === 'multi' ? pickShip : row.fulfill;
+  let cartonShipFee = channelBaseFee + (includeUnload ? row.unload : 0);
+  let shipSubtotal = cartonShipFee * totalCartons;
+
+  $("baseRate").value=fmt(row.base,2);
+  $("perLb").value=fmt(row.perLb,2);
+  $("pickShip").value=fmt(pickShip,2);
+  $("unloadFee").value=fmt(row.unload,2);
+  $("fulfillFee").value=fmt(row.fulfill,2);
+  $("channelBaseFee").value=fmt(channelBaseFee,2);
+  $("cartonShipFee").value=fmt(cartonShipFee,2);
+  $("totalCartons").value=fmt(totalCartons,0);
+  $("shipSubtotal").value=fmt(shipSubtotal,2);
+
+  if(storageClasses.some(x=>x.key===row.cat) && current.manualStorageChanged !== true){
+    $("storageClass").value = row.cat;
+    current.lastAutoStorage = row.cat;
+  }
+
+  const storage = currentStorageRate();
+  $("storageRate").value = `${fmt(storage.rate,2)} (${storage.band})`;
+  $("storageBillableDays").value = fmt(storage.billableDays,0);
+  let unitStorageCuft = cuft * Math.max(1, num("cartonsPerUnit"));
+  $("unitStorageCuft").value=fmt(unitStorageCuft,2);
+  let storageFee = Math.max(0,num("storageQty")) * unitStorageCuft * storage.rateDayFactor;
+  $("storageFee").value=fmt(storageFee,2);
+
+  let total = shipSubtotal + storageFee;
+  $("kpiCategory").textContent=row.cat.replace("Standard - ","Std. ").replace("Large - ","Lg. ");
+  $("kpiCarton").textContent=money(cartonShipFee);
+  $("kpiShipSubtotal").textContent=money(shipSubtotal);
+  $("kpiRate").textContent=money(storage.rate);
+  $("kpiStorage").textContent=money(storageFee);
+  $("kpiTotal").textContent=money(total);
+
+  current = {row, pickShip, cartonShipFee, shipSubtotal, storage, storageFee, total, cuft, feeWeight, totalCartons, Lin, Min, Sin, lgirth};
+}
+
+function copyResult(){
+  if(!current.row) return;
+  const lines = [
+    `尺寸(cm): L ${$("L").value} / M ${$("M").value} / S ${$("S").value}`,
+    `单箱实际重量: ${$("kg").value} kg / ${$("actlbs").value} lbs`,
+    `体积重: ${$("dimwt").value} lbs`,
+    `发货计费重量: ${$("feeWeight").value} lbs`,
+    `L+Girth: ${$("lgirth").value} in`,
+    `匹配类别: ${current.row.cat}`,
+    `Base Rate: $${$("baseRate").value}`,
+    `$/LB: $${$("perLb").value}`,
+    `订单渠道: ${document.getElementById('orderChannel')?.value === 'multi' ? '多渠道订单｜只计 Pick & Ship' : 'Wayfair订单｜只计 Fulfillment Fee'}`,
+    `Pick & Ship: $${$("pickShip").value}/箱`,
+    `Unload Fee: $${$("unloadFee").value}/箱（是否计入：${document.getElementById('includeUnload')?.value === 'yes' ? '是' : '否'}）`,
+    `Fulfillment Fee: $${$("fulfillFee").value}/箱`,
+    `单箱计入费用: $${$("cartonShipFee").value}`,
+    `总箱数: ${$("totalCartons").value}`,
+    `发货小计: $${$("shipSubtotal").value}`,
+    `仓储类别: ${$("storageClass").value}`,
+    `仓储费率: ${$("storageRate").value}`,
+    `有效计费天数: ${$("storageBillableDays").value} days`,
+    `仓储费: $${$("storageFee").value}`,
+    `总费用: ${$("kpiTotal").textContent}`
+  ];
+  navigator.clipboard.writeText(lines.join("\n"));
+  $("copyNote").textContent="已复制当前计算结果。";
+}
+
+function loadSmallExample(){
+  $("L").value=58; $("M").value=48.5; $("S").value=16; $("kg").value=16.3; $("qty").value=1; $("cartonsPerUnit").value=1; $("productGroup").value="general";
+  calculate();
+}
+function loadDresserExample(){
+  $("L").value=161; $("M").value=47.7; $("S").value=15.1; $("kg").value=47.9; $("qty").value=1; $("cartonsPerUnit").value=1; $("productGroup").value="general";
+  calculate();
+}
+
+function renderTables(){
+  const pickRows = rateRows.map(r=>`<tr><td>${r.cat}</td><td>${r.desc}</td><td>$${r.base.toFixed(2)}</td><td>$${r.perLb.toFixed(2)}</td><td>${r.maxL ? r.maxL+'\"' : '-'}</td><td>${r.maxLG ? r.maxLG+'\"' : '-'}</td><td>${r.minW}/${r.maxW}</td></tr>`).join("");
+  $("pickShipTable").innerHTML = `<thead><tr><th>Category</th><th>Example</th><th>Base</th><th>$/LB</th><th>Max L</th><th>L+Girth</th><th>Weight</th></tr></thead><tbody>${pickRows}</tbody>`;
+  const delRows = rateRows.map(r=>`<tr><td>${r.cat}</td><td>$${r.unload.toFixed(2)}</td><td>$${r.fulfill.toFixed(2)}</td><td>$${(r.unload+r.fulfill).toFixed(2)}</td></tr>`).join("");
+  $("deliveryTable").innerHTML = `<thead><tr><th>Category</th><th>Unload</th><th>Fulfillment</th><th>合计</th></tr></thead><tbody>${delRows}</tbody>`;
+}
+init();
+</script>
+</body>
+</html>
